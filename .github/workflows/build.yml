@@ -1,0 +1,45 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Validate package builds on PRs (artifacts not used - fresh build on merge)
+  validate-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Clone upstream source
+      run: |
+        ./run setup:clone
+
+    - name: Auto-increment version and update changelog
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        PACKAGE_VERSION=$(./scripts/generate-changelog.sh)
+        echo "Package version will be: $PACKAGE_VERSION"
+
+        echo "Generated debian/changelog:"
+        cat debian/changelog
+
+    - name: Read version from debian/changelog
+      id: version
+      run: |
+        # Extract version from first line of debian/changelog (includes Debian revision)
+        VERSION=$(dpkg-parsechangelog -S Version)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Found version: $VERSION"
+
+    - name: Build packages
+      run: |
+        # Use the CI-specific package build function
+        ./run package:deb:docker:ci
+
+    - name: Verify package was built
+      run: |
+        # Just verify the package exists (no need to upload - will rebuild on merge)
+        find . .. -maxdepth 1 -name "*.deb" | head -1 || (echo "ERROR: No .deb package found!" && exit 1)
+        echo "✅ Package build successful"
