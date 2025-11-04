@@ -20,16 +20,21 @@ jobs:
         id: upstream-version
         run: |
           echo "Querying GitHub API for latest cockpit-dockermanager release..."
-          LATEST_VERSION=$(curl -s "https://api.github.com/repos/chrisjbawden/cockpit-dockermanager/releases/latest" \
+          LATEST_TAG=$(curl -s "https://api.github.com/repos/chrisjbawden/cockpit-dockermanager/releases/latest" \
             | jq -r '.tag_name // empty')
 
-          if [ -z "$LATEST_VERSION" ]; then
+          if [ -z "$LATEST_TAG" ]; then
             echo "Error: Failed to fetch version from GitHub API"
             exit 1
           fi
 
-          echo "Latest upstream version: $LATEST_VERSION"
+          # Strip 'v' prefix for VERSION file (e.g., v1.0.7 -> 1.0.7)
+          LATEST_VERSION=${LATEST_TAG#v}
+
+          echo "Latest upstream tag: $LATEST_TAG"
+          echo "Latest version (for VERSION file): $LATEST_VERSION"
           echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
 
       - name: Read current VERSION file
         id: current-version
@@ -91,6 +96,8 @@ jobs:
           # Push branch
           git push origin "$BRANCH_NAME"
 
+          LATEST_TAG="${{ steps.upstream-version.outputs.tag }}"
+
           # Create PR
           gh pr create \
             --title "chore: update cockpit-dockermanager to $LATEST_VERSION" \
@@ -105,7 +112,7 @@ jobs:
           ### Details
 
           - **Upstream Repository:** [chrisjbawden/cockpit-dockermanager](https://github.com/chrisjbawden/cockpit-dockermanager)
-          - **Release Page:** [$LATEST_VERSION](https://github.com/chrisjbawden/cockpit-dockermanager/releases/tag/$LATEST_VERSION)
+          - **Release Page:** [$LATEST_TAG](https://github.com/chrisjbawden/cockpit-dockermanager/releases/tag/$LATEST_TAG)
 
           ### What happens after merge?
 
@@ -125,14 +132,14 @@ jobs:
           # Clone upstream at new version
           ./run setup:clone
           cd cockpit-dockermanager
-          git checkout $LATEST_VERSION
+          git checkout $LATEST_TAG
           cd ..
 
           # Build package
           ./run package:deb:docker
 
-          # Test installation (note: package version strips 'v' prefix)
-          sudo dpkg -i cockpit-dockermanager_\${LATEST_VERSION#v}-1_all.deb
+          # Test installation
+          sudo dpkg -i cockpit-dockermanager_${LATEST_VERSION}-1_all.deb
           \`\`\`
 
           Please verify:

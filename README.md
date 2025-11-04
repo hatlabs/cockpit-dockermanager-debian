@@ -49,8 +49,8 @@ Run `./run help` to see all available commands:
 To build a specific upstream version:
 
 ```bash
-./run setup:checkout v1.0.7  # or any other tag
-echo "v1.0.7" > VERSION       # Update package version (keep 'v' prefix)
+./run setup:checkout v1.0.7  # or any other tag (with 'v' prefix)
+echo "1.0.7" > VERSION        # Update package version (without 'v' prefix)
 ./run package:deb:docker
 ```
 
